@@ -1,5 +1,5 @@
 # pages/03_Mes-Resultats_et_Plan_action.py
-# Synthèse DISC + plan d'action EverINSIGHT
+# Synthese DISC + plan d'action EverINSIGHT
 
 import os
 import json
@@ -16,27 +16,27 @@ from fpdf import FPDF
 st.title("Mes resultats & plan d'action")
 
 # -------------------------------------------------------------------
-# 1. Récupération de l'email (session OU saisie manuelle)
+# 1. Recuperation de l'email (session OU saisie manuelle)
 # -------------------------------------------------------------------
 session_email = (st.session_state.get("email") or "").strip().lower()
 
 st.markdown(
     """
-Pour consulter votre profil DISC, nous avons besoin de l’adresse e-mail utilisée
+Pour consulter votre profil DISC, nous avons besoin de l’adresse e-mail utilisee
 lorsque vous avez rempli le questionnaire.
 """
 )
 
 if session_email:
-    st.success(f"Email détecté depuis l’onglet Accueil : **{session_email}**")
+    st.success(f"Email detecte depuis l’onglet Accueil : **{session_email}**")
 else:
     st.info(
-        "Vous n’avez pas encore renseigné vos informations dans l’onglet **Accueil** "
-        "ou vous avez rechargé la page. Vous pouvez saisir directement votre e-mail ci-dessous."
+        "Vous n’avez pas encore renseigne vos informations dans l’onglet **Accueil** "
+        "ou vous avez recharge la page. Vous pouvez saisir directement votre e-mail ci-dessous."
     )
 
 email = st.text_input(
-    "Votre adresse e-mail (celle utilisée pour le questionnaire DISC)",
+    "Votre adresse e-mail (celle utilisee pour le questionnaire DISC)",
     value=session_email,
 ).strip().lower()
 
@@ -44,7 +44,7 @@ if not email:
     st.stop()
 
 # -------------------------------------------------------------------
-# 2. Chargement du dernier résultat correspondant à cet e-mail
+# 2. Chargement du dernier resultat correspondant a cet e-mail
 # -------------------------------------------------------------------
 PAGES_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(PAGES_DIR)
@@ -52,7 +52,7 @@ LOG_DIR = os.path.join(PROJECT_ROOT, "Data", "logs")
 LOG_PATH = os.path.join(LOG_DIR, "disc_forced_sessions.jsonl")
 
 if not os.path.exists(LOG_PATH):
-    st.error("Aucun résultat trouvé pour l’instant. Le fichier de réponses n’existe pas encore.")
+    st.error("Aucun resultat trouve pour l’instant. Le fichier de reponses n’existe pas encore.")
     st.stop()
 
 records = []
@@ -66,26 +66,23 @@ with open(LOG_PATH, "r", encoding="utf-8") as f:
         except json.JSONDecodeError:
             continue
         user_field = (rec.get("user") or "").strip().lower()
-        # On matche sur l'email si possible
         if user_field == email:
             records.append(rec)
 
 if not records:
     st.warning(
-        "Aucun résultat DISC trouvé pour cet e-mail. "
-        "Vous n’avez peut-être pas encore validé le questionnaire, "
-        "ou vous avez utilisé une autre adresse."
+        "Aucun resultat DISC trouve pour cet e-mail. "
+        "Vous n’avez peut-etre pas encore valide le questionnaire, "
+        "ou vous avez utilise une autre adresse."
     )
     st.stop()
 
-# On prend le dernier résultat (le plus récent dans le fichier)
 last_rec = records[-1]
 
 scores = last_rec.get("scores", {})
 style_code = last_rec.get("style", "")
 top_dims = last_rec.get("top_dims", [])
 
-# Sécurité pour éviter les KeyError
 for k in ["D", "I", "S", "C"]:
     scores.setdefault(k, 0)
 
@@ -93,10 +90,10 @@ for k in ["D", "I", "S", "C"]:
 # 3. Table des scores + radar
 # -------------------------------------------------------------------
 DIM_LABELS = {
-    "D": ("Dominance", "Résultats / décision / vitesse"),
-    "I": ("Influence",  "Relation / énergie / inspiration"),
-    "S": ("Stabilité",  "Coopération / patience / fiabilité"),
-    "C": ("Conformité", "Qualité / précision / normes"),
+    "D": ("Dominance", "Resultats / decision / vitesse"),
+    "I": ("Influence",  "Relation / energie / inspiration"),
+    "S": ("Stabilite",  "Cooperation / patience / fiabilite"),
+    "C": ("Conformite", "Qualite / precision / normes"),
 }
 
 st.subheader("Vos scores DISC")
@@ -105,7 +102,7 @@ df = pd.DataFrame(
     [
         {
             "Dimension": k,
-            "Libellé": DIM_LABELS[k][0],
+            "Libelle": DIM_LABELS[k][0],
             "Score": scores[k],
             "Description": DIM_LABELS[k][1],
         }
@@ -116,9 +113,9 @@ df = pd.DataFrame(
 st.dataframe(df, use_container_width=True)
 
 chart = alt.Chart(df).mark_bar().encode(
-    x=alt.X("Libellé:N", sort="-y"),
+    x=alt.X("Libelle:N", sort="-y"),
     y="Score:Q",
-    tooltip=["Libellé", "Score", "Description"],
+    tooltip=["Libelle", "Score", "Description"],
 ).properties(height=260)
 
 st.altair_chart(chart, use_container_width=True)
@@ -126,8 +123,8 @@ st.altair_chart(chart, use_container_width=True)
 if len(df) >= 2:
     top1, top2 = df.iloc[0], df.iloc[1]
     st.success(
-        f"Votre profil est principalement **{top1['Libellé']} ({top1['Dimension']})**, "
-        f"avec une énergie secondaire **{top2['Libellé']} ({top2['Dimension']})**."
+        f"Votre profil est principalement **{top1['Libelle']} ({top1['Dimension']})**, "
+        f"avec une energie secondaire **{top2['Libelle']} ({top2['Dimension']})**."
     )
 
 # ---------- Radar / spider chart ----------
@@ -259,46 +256,44 @@ with mid:
     st.pyplot(fig, clear_figure=True)
 
 st.caption(
-    "Le point rouge est placé au **milieu** entre vos deux énergies les plus fortes. "
-    "Le radar coloré représente l’intensité relative de chaque dimension DISC."
+    "Le point rouge est place au **milieu** entre vos deux energies les plus fortes. "
+    "Le radar colore represente l’intensite relative de chaque dimension DISC."
 )
 
 # -------------------------------------------------------------------
-# 4. Lecture de profil + axes de réflexion
+# 4. Lecture de profil + axes de reflexion
 # -------------------------------------------------------------------
 st.markdown("---")
 st.subheader("Lecture de votre profil")
 
 DIM_NATURAL_STRENGTHS = {
-    "D": "Vous aimez relever des défis, aller vite et orienter les décisions.",
-    "I": "Vous mettez facilement de l’énergie et du lien dans le groupe.",
-    "S": "Vous favorisez la coopération, l’écoute et un climat stable.",
-    "C": "Vous apportez de la rigueur, de la précision et le sens des normes.",
+    "D": "Vous aimez relever des defis, aller vite et orienter les decisions.",
+    "I": "Vous mettez facilement de l’energie et du lien dans le groupe.",
+    "S": "Vous favorisez la cooperation, l’ecoute et un climat stable.",
+    "C": "Vous apportez de la rigueur, de la precision et le sens des normes.",
 }
 
 DIM_EXCESS = {
-    "D": "En excès, vous pouvez aller trop vite, imposer vos vues ou prendre peu de temps pour écouter.",
-    "I": "En excès, vous pouvez beaucoup parler, vous disperser ou perdre de vue l’objectif.",
-    "S": "En excès, vous pouvez éviter les conflits, trop vous adapter ou avoir du mal à dire non.",
-    "C": "En excès, vous pouvez sur-structurer, rechercher trop de détails ou avoir du mal à décider.",
+    "D": "En exces, vous pouvez aller trop vite, imposer vos vues ou prendre peu de temps pour ecouter.",
+    "I": "En exces, vous pouvez beaucoup parler, vous disperser ou perdre de vue l’objectif.",
+    "S": "En exces, vous pouvez eviter les conflits, trop vous adapter ou avoir du mal a dire non.",
+    "C": "En exces, vous pouvez sur-structurer, rechercher trop de details ou avoir du mal a decider.",
 }
 
 DIM_DEV = {
-    "D": "Gagner à écouter davantage, poser des questions et partager la décision quand c’est utile.",
-    "I": "Gagner à structurer vos messages, prioriser et conclure plus clairement.",
-    "S": "Gagner à exprimer vos désaccords, poser des limites et oser dire non.",
-    "C": "Gagner à simplifier, aller à l’essentiel et accepter une part d’incertitude.",
+    "D": "Gagner a ecouter davantage, poser des questions et partager la decision quand c’est utile.",
+    "I": "Gagner a structurer vos messages, prioriser et conclure plus clairement.",
+    "S": "Gagner a exprimer vos desaccords, poser des limites et oser dire non.",
+    "C": "Gagner a simplifier, aller a l’essentiel et accepter une part d’incertitude.",
 }
-
-top_code = "".join([ordered[0][0], ordered[1][0]])
 
 st.write(
     f"Vous avez un profil principalement **{DIM_LABELS[ordered[0][0]][0]} ({ordered[0][0]})**, "
-    f"avec une énergie secondaire **{DIM_LABELS[ordered[1][0]][0]} ({ordered[1][0]})**."
+    f"avec une energie secondaire **{DIM_LABELS[ordered[1][0]][0]} ({ordered[1][0]})**."
 )
 
 st.markdown(
-    "Concrètement, dans votre manière naturelle d’agir et de communiquer, cela se traduit souvent ainsi :"
+    "Concretement, dans votre maniere naturelle d’agir et de communiquer, cela se traduit souvent ainsi :"
 )
 
 for dim in [ordered[0][0], ordered[1][0]]:
@@ -309,13 +304,13 @@ st.subheader("Vos points forts naturels")
 for dim in [ordered[0][0], ordered[1][0]]:
     st.markdown(f"- **{DIM_LABELS[dim][0]} ({dim})** : {DIM_NATURAL_STRENGTHS[dim]}")
 
-st.subheader("Axes de réflexion pour progresser")
+st.subheader("Axes de reflexion pour progresser")
 
-st.markdown("**1. Utiliser vos forces sans tomber dans leurs excès**")
+st.markdown("**1. Utiliser vos forces sans tomber dans leurs exces**")
 for dim in [ordered[0][0], ordered[1][0]]:
-    st.markdown(f"- **Énergie {DIM_LABELS[dim][0]} ({dim})** : {DIM_EXCESS[dim]}")
+    st.markdown(f"- **Energie {DIM_LABELS[dim][0]} ({dim})** : {DIM_EXCESS[dim]}")
 
-st.markdown("**2. Développer davantage vos énergies moins naturelles**")
+st.markdown("**2. Developper davantage vos energies moins naturelles**")
 for dim in ["D", "I", "S", "C"]:
     if dim not in [ordered[0][0], ordered[1][0]]:
         st.markdown(f"- **{DIM_LABELS[dim][0]} ({dim})** : {DIM_DEV[dim]}")
@@ -328,18 +323,18 @@ st.subheader("Pistes de plan d’action personnel")
 
 st.markdown(
     """
-L’objectif est de relier votre profil DISC à **des situations concrètes**.
+L’objectif est de relier votre profil DISC a **des situations concretes**.
 
-**1. Situation où vous avez atteint un bon résultat**  
-- Quelle était la situation ?  
-- Qu’avez-vous fait concrètement ?  
-- Quelles énergies DISC avez-vous mobilisées (D, I, S, C) ?  
-- Quels micro-comportements aimeriez-vous réutiliser plus souvent ?
+**1. Situation ou vous avez atteint un bon resultat**  
+- Quelle etait la situation ?  
+- Qu’avez-vous fait concretement ?  
+- Quelles energies DISC avez-vous mobilisees (D, I, S, C) ?  
+- Quels micro-comportements aimeriez-vous reutiliser plus souvent ?
 
 **2. Situation plus difficile / moins satisfaisante**  
-- Quelle était la situation ?  
-- Comment avez-vous réagi spontanément ?  
-- Quelle autre énergie DISC auriez-vous pu activer ?  
+- Quelle etait la situation ?  
+- Comment avez-vous reagi spontaneement ?  
+- Quelle autre energie DISC auriez-vous pu activer ?  
 - Quels micro-comportements pourriez-vous tester la prochaine fois ?
 """
 )
@@ -348,14 +343,14 @@ col1, col2 = st.columns(2)
 
 with col1:
     situation_success = st.text_area(
-        "Plan d'action – Situation réussie",
+        "Plan d'action – Situation reussie",
         height=220,
         placeholder=(
-            "Décrivez une situation où vous avez obtenu un bon résultat.\n"
-            "- Ce qui s'est passé\n"
-            "- Ce que vous avez fait concrètement\n"
-            "- Les énergies DISC mobilisées\n"
-            "- Les micro-comportements à garder"
+            "Decrivez une situation ou vous avez obtenu un bon resultat.\n"
+            "- Ce qui s'est passe\n"
+            "- Ce que vous avez fait concretement\n"
+            "- Les energies DISC mobilisees\n"
+            "- Les micro-comportements a garder"
         ),
     )
 
@@ -364,19 +359,25 @@ with col2:
         "Plan d'action – Situation difficile",
         height=220,
         placeholder=(
-            "Décrivez une situation plus difficile.\n"
-            "- Ce qui s'est passé\n"
-            "- Votre réaction spontanée\n"
-            "- L'énergie DISC que vous pourriez activer autrement\n"
-            "- Les micro-comportements à tester"
+            "Decrivez une situation plus difficile.\n"
+            "- Ce qui s'est passe\n"
+            "- Votre reaction spontanee\n"
+            "- L'energie DISC que vous pourriez activer autrement\n"
+            "- Les micro-comportements a tester"
         ),
     )
 
 # -------------------------------------------------------------------
-# 6. Export PDF de synthèse
+# 6. Export PDF de synthese
 # -------------------------------------------------------------------
 st.markdown("---")
-st.subheader("Exporter ma synthèse en PDF")
+st.subheader("Exporter ma synthese en PDF")
+
+def sanitize(text: str) -> str:
+    """Convertit tout texte en latin-1 compatible pour FPDF."""
+    if text is None:
+        return ""
+    return text.encode("latin-1", "ignore").decode("latin-1")
 
 def build_pdf(
     email: str,
@@ -390,65 +391,65 @@ def build_pdf(
     pdf.add_page()
 
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Profil DISC - Synthese personnelle", ln=True)
+    pdf.cell(0, 10, sanitize("Profil DISC - Synthese personnelle"), ln=True)
 
     pdf.set_font("Arial", "", 11)
-    pdf.cell(0, 8, f"Email : {email}", ln=True)
+    pdf.cell(0, 8, sanitize(f"Email : {email}"), ln=True)
     pdf.ln(2)
 
     # Scores
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Scores detaillees :", ln=True)
+    pdf.cell(0, 8, sanitize("Scores detaillees :"), ln=True)
     pdf.set_font("Arial", "", 11)
     scores_line = (
         f"D : {scores['D']}, I : {scores['I']}, "
         f"S : {scores['S']}, C : {scores['C']}"
     )
-    pdf.cell(0, 8, scores_line, ln=True)
+    pdf.cell(0, 8, sanitize(scores_line), ln=True)
     pdf.ln(4)
 
     # Points forts
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Vos points forts naturels :", ln=True)
+    pdf.cell(0, 8, sanitize("Vos points forts naturels :"), ln=True)
     pdf.set_font("Arial", "", 11)
     for dim in [ordered_dims[0][0], ordered_dims[1][0]]:
         txt = f"- {DIM_LABELS[dim][0]} ({dim}) : {DIM_NATURAL_STRENGTHS[dim]}"
-        pdf.multi_cell(0, 6, txt)
+        pdf.multi_cell(0, 6, sanitize(txt))
     pdf.ln(2)
 
-    # Axes de réflexion
+    # Axes de reflexion
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Axes de reflexion pour progresser :", ln=True)
+    pdf.cell(0, 8, sanitize("Axes de reflexion pour progresser :"), ln=True)
     pdf.set_font("Arial", "", 11)
-    pdf.multi_cell(0, 6, "Utiliser vos forces sans tomber dans leurs exces :")
+    pdf.multi_cell(0, 6, sanitize("Utiliser vos forces sans tomber dans leurs exces :"))
     for dim in [ordered_dims[0][0], ordered_dims[1][0]]:
         txt = f"- {DIM_LABELS[dim][0]} ({dim}) : {DIM_EXCESS[dim]}"
-        pdf.multi_cell(0, 6, txt)
+        pdf.multi_cell(0, 6, sanitize(txt))
     pdf.ln(1)
-    pdf.multi_cell(0, 6, "Developper davantage vos energies moins naturelles :")
+    pdf.multi_cell(0, 6, sanitize("Developper davantage vos energies moins naturelles :"))
     for dim in ["D", "I", "S", "C"]:
         if dim not in [ordered_dims[0][0], ordered_dims[1][0]]:
             txt = f"- {DIM_LABELS[dim][0]} ({dim}) : {DIM_DEV[dim]}"
-            pdf.multi_cell(0, 6, txt)
+            pdf.multi_cell(0, 6, sanitize(txt))
     pdf.ln(2)
 
     # Plan d'action
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Plan d'action - Situation reussie :", ln=True)
+    pdf.cell(0, 8, sanitize("Plan d'action - Situation reussie :"), ln=True)
     pdf.set_font("Arial", "", 11)
-    pdf.multi_cell(0, 6, situation_success or "(non renseigne)")
+    pdf.multi_cell(0, 6, sanitize(situation_success or "(non renseigne)"))
     pdf.ln(1)
 
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, "Plan d'action - Situation difficile :", ln=True)
+    pdf.cell(0, 8, sanitize("Plan d'action - Situation difficile :"), ln=True)
     pdf.set_font("Arial", "", 11)
-    pdf.multi_cell(0, 6, situation_difficult or "(non renseigne)")
+    pdf.multi_cell(0, 6, sanitize(situation_difficult or "(non renseigne)"))
 
-    # IMPORTANT : convertir en latin-1 en ignorant les caracteres non supportes
+    # Generation finale
     pdf_bytes = pdf.output(dest="S").encode("latin-1", "ignore")
     return pdf_bytes
 
-if st.button("Générer le PDF de ma synthèse"):
+if st.button("Generer le PDF de ma synthese"):
     pdf_bytes = build_pdf(
         email=email,
         scores=scores,
@@ -457,7 +458,7 @@ if st.button("Générer le PDF de ma synthèse"):
         situation_difficult=situation_difficult,
     )
     st.download_button(
-        "⬇️ Télécharger le PDF",
+        "⬇️ Telecharger le PDF",
         data=io.BytesIO(pdf_bytes),
         file_name="profil_disc_synthese.pdf",
         mime="application/pdf",
