@@ -78,14 +78,13 @@ if not records:
     )
     st.stop()
 
-# Derniere passation
 last_rec = records[-1]
 
 scores = last_rec.get("scores", {})
 style_code = last_rec.get("style", "")
 top_dims = last_rec.get("top_dims", [])
 
-# 👉 Recuperation du prenom / nom s'ils existent dans le JSON
+# 👉 Recuperation eventuelle du prenom / nom (si la nouvelle version du questionnaire les enregistre)
 prenom = (last_rec.get("prenom") or "").strip()
 nom = (last_rec.get("nom") or "").strip()
 
@@ -318,7 +317,6 @@ for dim in [ordered[0][0], ordered[1][0]]:
 
 st.subheader("Vos points forts naturels")
 
-# Ici on reste focus sur les 2 energies principales dans la synthese coachée
 for dim in [ordered[0][0], ordered[1][0]]:
     st.markdown(f"- **{DIM_LABELS[dim][0]} ({dim})** : {DIM_NATURAL_STRENGTHS[dim]}")
 
