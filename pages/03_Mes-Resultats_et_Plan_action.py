@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 import io
 import math
+import tempfile
 
 import streamlit as st
 import pandas as pd
@@ -251,6 +252,12 @@ ax.set_rticks([])
 ax.set_thetagrids([])
 ax.set_rlim(0, 1.05)
 
+# ---> Sauvegarde du radar en PNG (pour le PDF)
+buf = io.BytesIO()
+fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+buf.seek(0)
+st.session_state["radar_png"] = buf.getvalue()
+
 left, mid, right = st.columns([1, 2, 1])
 with mid:
     st.pyplot(fig, clear_figure=True)
@@ -368,7 +375,7 @@ with col2:
     )
 
 # -------------------------------------------------------------------
-# 6. Export PDF de synthese
+# 6. Export PDF de synthese (avec radar)
 # -------------------------------------------------------------------
 st.markdown("---")
 st.subheader("Exporter ma synthese en PDF")
@@ -385,6 +392,7 @@ def build_pdf(
     ordered_dims,
     situation_success: str,
     situation_difficult: str,
+    radar_png: bytes | None = None,
 ) -> bytes:
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -433,7 +441,28 @@ def build_pdf(
             pdf.multi_cell(0, 6, sanitize(txt))
     pdf.ln(2)
 
-    # Plan d'action
+    # Page radar (si dispo)
+    if radar_png:
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 8, sanitize("Votre profil DISC (radar)"), ln=True)
+        pdf.ln(4)
+
+        # Enregistrer temporairement l'image
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            tmp.write(radar_png)
+            tmp_path = tmp.name
+
+        # Inserer l'image (largeur ~160 mm, centree)
+        pdf.image(tmp_path, x=25, y=None, w=160)
+        # Nettoyage du fichier temporaire
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    # Page plan d'action
+    pdf.add_page()
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, sanitize("Plan d'action - Situation reussie :"), ln=True)
     pdf.set_font("Arial", "", 11)
@@ -450,12 +479,14 @@ def build_pdf(
     return pdf_bytes
 
 if st.button("Generer le PDF de ma synthese"):
+    radar_png = st.session_state.get("radar_png")
     pdf_bytes = build_pdf(
         email=email,
         scores=scores,
         ordered_dims=ordered,
         situation_success=situation_success,
         situation_difficult=situation_difficult,
+        radar_png=radar_png,
     )
     st.download_button(
         "⬇️ Telecharger le PDF",
