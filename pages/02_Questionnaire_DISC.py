@@ -11,6 +11,9 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import matplotlib.pyplot as plt
+import gspread
+from google.oauth2.service_account import Credentials
+
 
 st.set_page_config(page_title="Questionnaire DISC", page_icon="🧭", layout="wide")
 
@@ -180,6 +183,64 @@ DIM_LABELS = {
 COLOR = {"D": "#E41E26", "I": "#FFC107", "S": "#2ECC71", "C": "#2E86DE"}
 ANGLE_DEG = {"D": 45, "I": 135, "S": 225, "C": 315}
 
+# ---------------------------------------------------
+# Google Sheets : enregistrement des résultats DISC
+# ---------------------------------------------------
+def get_gsheet_client():
+    """
+    Crée un client Google Sheets à partir du compte de service
+    défini dans st.secrets['gcp_service_account'].
+    """
+    sa_info = st.secrets["gcp_service_account"]
+
+    creds = Credentials.from_service_account_info(
+        sa_info,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ],
+    )
+    return gspread.authorize(creds)
+
+
+def log_disc_result_to_sheet(
+    timestamp: str,
+    email: str,
+    first_name: str,
+    last_name: str,
+    scores: dict,
+    style_code: str,
+):
+    """
+    Ajoute une ligne dans la Google Sheet avec les principaux éléments du profil.
+    Si la connexion échoue, on affiche juste un warning dans l'app.
+    """
+    try:
+        sheet_id = st.secrets["google_sheets"]["sheet_id"]
+        gc = get_gsheet_client()
+        sh = gc.open_by_key(sheet_id)
+
+        # Onglet cible : ici la première feuille.
+        # Si tu crées un onglet "Reponses_DISC", remplace par: sh.worksheet("Reponses_DISC")
+        ws = sh.sheet1
+
+        row = [
+            timestamp,
+            first_name,
+            last_name,
+            email,
+            scores.get("D", 0),
+            scores.get("I", 0),
+            scores.get("S", 0),
+            scores.get("C", 0),
+            style_code,
+        ]
+
+        ws.append_row(row, value_input_option="USER_ENTERED")
+
+    except Exception as e:
+        # On ne bloque jamais l'app pour un problème de Google Sheets
+        st.warning(f"Impossible d'enregistrer vos résultats dans Google Sheets : {e}")
 
 # ---------------------------------------------------
 # 2. UI
@@ -417,7 +478,7 @@ st.caption(
 )
 
 # ---------------------------------------------------
-# 5. Log JSONL
+# 5. Log JSONL + Google Sheets
 # ---------------------------------------------------
 export = {
     "ts": datetime.utcnow().isoformat() + "Z",
@@ -430,6 +491,17 @@ export = {
     "choices": picked,
 }
 
+# Enregistrement dans Google Sheets (sans bloquer l'app en cas d'erreur)
+log_disc_result_to_sheet(
+    timestamp=export["ts"],
+    email=email,
+    first_name=first_name,
+    last_name=last_name,
+    scores=totals,
+    style_code=style_code,
+)
+
+# Log local JSONL (comme avant)
 with open(LOG_PATH, "a", encoding="utf-8") as f:
     f.write(json.dumps(export, ensure_ascii=False) + "\n")
 
