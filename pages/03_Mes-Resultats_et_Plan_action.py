@@ -17,9 +17,59 @@ from fpdf import FPDF
 st.title("Mes resultats & plan d'action")
 
 # -------------------------------------------------------------------
-# 1. Recuperation de l'email (session OU saisie manuelle)
+# 0. Constantes communes
 # -------------------------------------------------------------------
+
+# Libelles des dimensions
+DIM_LABELS = {
+    "D": ("Dominance", "Resultats / decision / vitesse"),
+    "I": ("Influence", "Relation / energie / inspiration"),
+    "S": ("Stabilite", "Cooperation / patience / fiabilite"),
+    "C": ("Conformite", "Qualite / precision / normes"),
+}
+
+# Lecture "forces naturelles"
+DIM_NATURAL_STRENGTHS = {
+    "D": "Vous aimez relever des defis, aller vite et orienter les decisions.",
+    "I": "Vous mettez facilement de l’energie et du lien dans le groupe.",
+    "S": "Vous favorisez la cooperation, l’ecoute et un climat stable.",
+    "C": "Vous apportez de la rigueur, de la precision et le sens des normes.",
+}
+
+# Risques d'exces pour les energies fortes (affichage ecran + PDF)
+DIM_EXCESS = {
+    "D": "En exces, vous pouvez aller trop vite, imposer vos vues ou prendre peu de temps pour ecouter.",
+    "I": "En exces, vous pouvez beaucoup parler, vous disperser ou perdre de vue l’objectif.",
+    "S": "En exces, vous pouvez eviter les conflits, trop vous adapter ou avoir du mal a dire non.",
+    "C": "En exces, vous pouvez sur-structurer, rechercher trop de details ou avoir du mal a decider.",
+}
+
+# Axes de developpement pour les energies moins naturelles
+GROWTH_TEXT = {
+    "D": "Developper davantage la Dominance (D) vous aiderait a prendre plus facilement des decisions, tenir vos positions et oser vous affirmer dans les moments cles.",
+    "I": "Developper davantage l’Influence (I) vous aiderait a partager vos idees, creer plus de lien et embarquer plus facilement les autres.",
+    "S": "Developper davantage la Stabilite (S) vous aiderait a mieux reflechir aux consequences de vos actions, prendre en compte l’ensemble des acteurs et installer un climat de confiance.",
+    "C": "Developper davantage la Conformite (C) vous aiderait a structurer vos demarches, securiser les points de detail importants et fiabiliser vos decisions.",
+}
+
+# Pour le PDF : textes axes de dev (formulation un peu plus courte)
+DIM_DEV = {
+    "D": "Vous pourriez gagner a ecouter davantage, poser des questions et partager la decision quand c’est utile.",
+    "I": "Vous pourriez gagner a structurer davantage vos messages, prioriser et conclure plus clairement.",
+    "S": "Vous pourriez gagner a exprimer vos desaccords, poser des limites et oser dire non.",
+    "C": "Vous pourriez gagner a simplifier, aller a l’essentiel et accepter une part d’incertitude.",
+}
+
+# Couleurs radar
+COLOR = {"D": "#E41E26", "I": "#FFC107", "S": "#2ECC71", "C": "#2E86DE"}
+
+
+# -------------------------------------------------------------------
+# 1. Recuperation email + prenom depuis la session
+# -------------------------------------------------------------------
+
 session_email = (st.session_state.get("email") or "").strip().lower()
+session_first_name = (st.session_state.get("first_name") or "").strip()
 
 st.markdown(
     """
@@ -47,6 +97,7 @@ if not email:
 # -------------------------------------------------------------------
 # 2. Chargement du dernier resultat correspondant a cet e-mail
 # -------------------------------------------------------------------
+
 PAGES_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(PAGES_DIR)
 LOG_DIR = os.path.join(PROJECT_ROOT, "Data", "logs")
@@ -80,49 +131,47 @@ if not records:
 
 last_rec = records[-1]
 
-scores = last_rec.get("scores", {})
-style_code = last_rec.get("style", "")
-top_dims = last_rec.get("top_dims", [])
-
-# 👉 Recuperation eventuelle du prenom / nom (si la nouvelle version du questionnaire les enregistre)
-prenom = (last_rec.get("prenom") or "").strip()
-nom = (last_rec.get("nom") or "").strip()
-
+scores = last_rec.get("scores", {}) or {}
 for k in ["D", "I", "S", "C"]:
     scores.setdefault(k, 0)
 
+# Pour certains calculs, on a besoin d'un classement des dimensions
+ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+
 # -------------------------------------------------------------------
-# 3. Table des scores + radar
+# 3. Tableau des scores + histogramme
 # -------------------------------------------------------------------
-DIM_LABELS = {
-    "D": ("Dominance", "Resultats / decision / vitesse"),
-    "I": ("Influence",  "Relation / energie / inspiration"),
-    "S": ("Stabilite",  "Cooperation / patience / fiabilite"),
-    "C": ("Conformite", "Qualite / precision / normes"),
-}
 
 st.subheader("Vos scores DISC")
 
-df = pd.DataFrame(
-    [
-        {
-            "Dimension": k,
-            "Libelle": DIM_LABELS[k][0],
-            "Score": scores[k],
-            "Description": DIM_LABELS[k][1],
-        }
-        for k in ["D", "I", "S", "C"]
-    ]
-).sort_values("Score", ascending=False).reset_index(drop=True)
+df = (
+    pd.DataFrame(
+        [
+            {
+                "Dimension": k,
+                "Libelle": DIM_LABELS[k][0],
+                "Score": scores[k],
+                "Description": DIM_LABELS[k][1],
+            }
+            for k in ["D", "I", "S", "C"]
+        ]
+    )
+    .sort_values("Score", ascending=False)
+    .reset_index(drop=True)
+)
 
 st.dataframe(df, use_container_width=True)
 
-chart = alt.Chart(df).mark_bar().encode(
-    x=alt.X("Libelle:N", sort="-y"),
-    y="Score:Q",
-    tooltip=["Libelle", "Score", "Description"],
-).properties(height=260)
-
+chart = (
+    alt.Chart(df)
+    .mark_bar()
+    .encode(
+        x=alt.X("Libelle:N", sort="-y"),
+        y="Score:Q",
+        tooltip=["Libelle", "Score", "Description"],
+    )
+    .properties(height=260)
+)
 st.altair_chart(chart, use_container_width=True)
 
 if len(df) >= 2:
@@ -132,24 +181,28 @@ if len(df) >= 2:
         f"avec une energie secondaire **{top2['Libelle']} ({top2['Dimension']})**."
     )
 
-# ---------- Radar / spider chart ----------
+# -------------------------------------------------------------------
+# 4. Radar / spider chart
+# -------------------------------------------------------------------
+
 st.subheader("Votre profil DISC (radar)")
 
-COLOR = {"D": "#E41E26", "I": "#FFC107", "S": "#2ECC71", "C": "#2E86DE"}
-ANGLE_DEG = {"D": 45, "I": 135, "S": 225, "C": 315}
 
 def pol2xy(angle_deg, r):
     a = math.radians(angle_deg)
     return (r * math.cos(a), r * math.sin(a))
+
 
 def xy2pol(x, y):
     r = math.hypot(x, y)
     a = (math.degrees(math.atan2(y, x)) + 360) % 360
     return a, r
 
+
 def scale_r(score, rmin=0.10, rmax=0.95, max_score=25):
     score = max(0, min(score, max_score))
     return rmin + (rmax - rmin) * (score / max_score)
+
 
 rD = scale_r(scores["D"])
 rI = scale_r(scores["I"])
@@ -163,7 +216,7 @@ radar_pts = {
     "C": pol2xy(315, rC),
 }
 
-ordered = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+# Milieu entre les 2 energies les plus fortes
 dims_top2 = [ordered[0][0], ordered[1][0]]
 x1, y1 = radar_pts[dims_top2[0]]
 x2, y2 = radar_pts[dims_top2[1]]
@@ -174,6 +227,7 @@ fig = plt.figure(figsize=(4.8, 4.8))
 ax = plt.subplot(111, projection="polar")
 plt.subplots_adjust(left=0.06, right=0.94, top=0.94, bottom=0.06)
 
+# Secteurs colores
 sectors = {
     "D": (math.radians(0), math.radians(90)),
     "I": (math.radians(90), math.radians(180)),
@@ -185,9 +239,11 @@ for k, (start, end) in sectors.items():
     rr = [1.0] * len(theta)
     ax.fill(theta, rr, alpha=0.24, color=COLOR[k], edgecolor="none")
 
+# Cercles
 for r, lw in [(0.30, 1), (0.42, 1), (0.90, 1.2)]:
     ax.plot([0, 2 * math.pi], [r, r], color="#bdbdbd", linewidth=lw)
 
+# Axes pointilles
 for ang in [45, 135, 225, 315]:
     ax.plot(
         [math.radians(ang), math.radians(ang)],
@@ -220,12 +276,11 @@ ax.plot([math.radians(135), math.radians(135)], [0, rI], color=radar_color, line
 ax.plot([math.radians(225), math.radians(225)], [0, rS], color=radar_color, linewidth=1.0)
 ax.plot([math.radians(315), math.radians(315)], [0, rC], color=radar_color, linewidth=1.0)
 
-# 👉 Affichage du prenom si disponible, sinon email, sinon "participant"
-if prenom:
-    name_display = prenom
+# 👉 Nom affiche : prenom si dispo (session), sinon email, sinon "participant"
+if session_first_name:
+    name_display = session_first_name
 else:
-    display_name = session_first_name or email or "participant"
-
+    name_display = email or "participant"
 
 ax.scatter(
     math.radians(marker_angle_deg),
@@ -239,7 +294,7 @@ label_r = max(0.05, marker_r - 0.08)
 ax.text(
     math.radians(marker_angle_deg),
     label_r,
-    display_name,
+    name_display,
     ha="center",
     va="top",
     fontsize=11,
@@ -247,15 +302,46 @@ ax.text(
     zorder=7,
 )
 
-
-ax.text(math.radians(45), 1.03, "D", color=COLOR["D"], ha="center", va="center",
-        fontsize=14, fontweight="bold")
-ax.text(math.radians(135), 1.03, "I", color=COLOR["I"], ha="center", va="center",
-        fontsize=14, fontweight="bold")
-ax.text(math.radians(225), 1.03, "S", color=COLOR["S"], ha="center", va="center",
-        fontsize=14, fontweight="bold")
-ax.text(math.radians(315), 1.03, "C", color=COLOR["C"], ha="center", va="center",
-        fontsize=14, fontweight="bold")
+ax.text(
+    math.radians(45),
+    1.03,
+    "D",
+    color=COLOR["D"],
+    ha="center",
+    va="center",
+    fontsize=14,
+    fontweight="bold",
+)
+ax.text(
+    math.radians(135),
+    1.03,
+    "I",
+    color=COLOR["I"],
+    ha="center",
+    va="center",
+    fontsize=14,
+    fontweight="bold",
+)
+ax.text(
+    math.radians(225),
+    1.03,
+    "S",
+    color=COLOR["S"],
+    ha="center",
+    va="center",
+    fontsize=14,
+    fontweight="bold",
+)
+ax.text(
+    math.radians(315),
+    1.03,
+    "C",
+    color=COLOR["C"],
+    ha="center",
+    va="center",
+    fontsize=14,
+    fontweight="bold",
+)
 
 ax.set_theta_zero_location("N")
 ax.set_theta_direction(-1)
@@ -263,13 +349,13 @@ ax.set_rticks([])
 ax.set_thetagrids([])
 ax.set_rlim(0, 1.05)
 
-# ---> Sauvegarde du radar en PNG (pour le PDF)
+# Sauvegarde PNG pour le PDF
 buf = io.BytesIO()
 fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
 buf.seek(0)
 st.session_state["radar_png"] = buf.getvalue()
 
-left, mid, right = st.columns([1, 2, 1])
+mid = st.columns([1, 2, 1])[1]
 with mid:
     st.pyplot(fig, clear_figure=True)
 
@@ -279,31 +365,11 @@ st.caption(
 )
 
 # -------------------------------------------------------------------
-# 4. Lecture de profil + axes de reflexion
+# 5. Lecture de profil + axes de reflexion
 # -------------------------------------------------------------------
+
 st.markdown("---")
 st.subheader("Lecture de votre profil")
-
-DIM_NATURAL_STRENGTHS = {
-    "D": "Vous aimez relever des defis, aller vite et orienter les decisions.",
-    "I": "Vous mettez facilement de l’energie et du lien dans le groupe.",
-    "S": "Vous favorisez la cooperation, l’ecoute et un climat stable.",
-    "C": "Vous apportez de la rigueur, de la precision et le sens des normes.",
-}
-
-DIM_EXCESS = {
-    "D": "En exces, vous pouvez aller trop vite, imposer vos vues ou prendre peu de temps pour ecouter.",
-    "I": "En exces, vous pouvez beaucoup parler, vous disperser ou perdre de vue l’objectif.",
-    "S": "En exces, vous pouvez eviter les conflits, trop vous adapter ou avoir du mal a dire non.",
-    "C": "En exces, vous pouvez sur-structurer, rechercher trop de details ou avoir du mal a decider.",
-}
-
-DIM_DEV = {
-    "D": "Gagner a ecouter davantage, poser des questions et partager la decision quand c’est utile.",
-    "I": "Gagner a structurer vos messages, prioriser et conclure plus clairement.",
-    "S": "Gagner a exprimer vos desaccords, poser des limites et oser dire non.",
-    "C": "Gagner a simplifier, aller a l’essentiel et accepter une part d’incertitude.",
-}
 
 st.write(
     f"Vous avez un profil principalement **{DIM_LABELS[ordered[0][0]][0]} ({ordered[0][0]})**, "
@@ -313,54 +379,38 @@ st.write(
 st.markdown(
     "Concretement, dans votre maniere naturelle d’agir et de communiquer, cela se traduit souvent ainsi :"
 )
-
 for dim in [ordered[0][0], ordered[1][0]]:
     st.markdown(f"- **{DIM_LABELS[dim][0]} ({dim})** : {DIM_NATURAL_STRENGTHS[dim]}")
 
 st.subheader("Vos points forts naturels")
-
 for dim in [ordered[0][0], ordered[1][0]]:
     st.markdown(f"- **{DIM_LABELS[dim][0]} ({dim})** : {DIM_NATURAL_STRENGTHS[dim]}")
 
-st.subheader("Axes de réflexion pour progresser")
+st.subheader("Axes de reflexion pour progresser")
 
-# On sépare clairement forces et énergies moins naturelles
-strong_dims = [d for d, s in scores.items() if s >= 6]   # ≥ 6
-weak_dims   = [d for d, s in scores.items() if s < 6]    # < 6
+# ≥ 6 = energies fortes ; < 6 = energies moins naturelles
+strong_dims = [d for d, s in scores.items() if s >= 6]
+weak_dims = [d for d, s in scores.items() if s < 6]
 
-# Textes risques d’excès pour les énergies fortes
-RISK_TEXT = {
-    "D": "En excès, vous pouvez aller trop vite, imposer vos vues ou prendre peu de temps pour écouter.",
-    "I": "En excès, vous pouvez beaucoup parler, vous disperser ou perdre de vue l’objectif.",
-    "S": "En excès, vous pouvez éviter les conflits, trop vous adapter et avoir du mal à dire non.",
-    "C": "En excès, vous pouvez être trop dans le détail, ralentir la décision ou manquer de flexibilité."
-}
-
-# Textes de développement pour les énergies moins naturelles
-GROWTH_TEXT = {
-    "D": "Développer davantage la Dominance (D) vous aiderait à prendre plus facilement des décisions, tenir vos positions et oser vous affirmer dans les moments clés.",
-    "I": "Développer davantage l’Influence (I) vous aiderait à partager vos idées, créer plus de lien et embarquer plus facilement les autres.",
-    "S": "Développer davantage la Stabilité (S) vous aiderait à mieux réfléchir aux conséquences de vos actions, prendre en compte l’ensemble des acteurs et installer un climat de confiance.",
-    "C": "Développer davantage la Conformité (C) vous aiderait à structurer vos démarches, sécuriser les points de détail importants et fiabiliser vos décisions."
-}
-
-# 1. Utiliser vos forces sans tomber dans leurs excès
-st.markdown("**1. Utiliser vos forces sans tomber dans leurs excès**")
+st.markdown("**1. Utiliser vos forces sans tomber dans leurs exces**")
 for d in strong_dims:
-    label = DIM_LABELS[d][0]  # ex. "Dominance"
-    st.markdown(f"- **Énergie {label} ({d})** : {RISK_TEXT[d]}")
+    label = DIM_LABELS[d][0]
+    st.markdown(f"- **Energie {label} ({d})** : {DIM_EXCESS[d]}")
 
-# 2. Développer davantage vos énergies moins naturelles
-st.markdown("**2. Développer davantage vos énergies moins naturelles**")
+st.markdown("**2. Developper davantage vos energies moins naturelles**")
 if weak_dims:
     for d in weak_dims:
         st.markdown(f"- {GROWTH_TEXT[d]}")
 else:
-    st.markdown("Vous mobilisez déjà les 4 énergies de façon assez équilibrée. L’enjeu principal est surtout de doser vos forces en fonction des situations.")
+    st.markdown(
+        "Vous mobilisez deja les 4 energies de facon assez equilibree. "
+        "L’enjeu principal est surtout de doser vos forces en fonction des situations."
+    )
 
 # -------------------------------------------------------------------
-# 5. Plan d'action – micro-comportements
+# 6. Plan d'action – micro-comportements
 # -------------------------------------------------------------------
+
 st.markdown("---")
 st.subheader("Pistes de plan d’action personnel")
 
@@ -411,16 +461,19 @@ with col2:
     )
 
 # -------------------------------------------------------------------
-# 6. Export PDF de synthese (avec radar)
+# 7. Export PDF de synthese (avec radar)
 # -------------------------------------------------------------------
+
 st.markdown("---")
 st.subheader("Exporter ma synthese en PDF")
+
 
 def sanitize(text: str) -> str:
     """Convertit tout texte en latin-1 compatible pour FPDF."""
     if text is None:
         return ""
     return text.encode("latin-1", "ignore").decode("latin-1")
+
 
 def build_pdf(
     email: str,
@@ -477,21 +530,18 @@ def build_pdf(
             pdf.multi_cell(0, 6, sanitize(txt))
     pdf.ln(2)
 
-    # Page radar (si dispo)
+    # Page radar
     if radar_png:
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 8, sanitize("Votre profil DISC (radar)"), ln=True)
         pdf.ln(4)
 
-        # Enregistrer temporairement l'image
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             tmp.write(radar_png)
             tmp_path = tmp.name
 
-        # Inserer l'image (largeur ~160 mm, centree)
         pdf.image(tmp_path, x=25, y=None, w=160)
-        # Nettoyage du fichier temporaire
         try:
             os.remove(tmp_path)
         except OSError:
@@ -510,9 +560,9 @@ def build_pdf(
     pdf.set_font("Arial", "", 11)
     pdf.multi_cell(0, 6, sanitize(situation_difficult or "(non renseigne)"))
 
-    # Generation finale
     pdf_bytes = pdf.output(dest="S").encode("latin-1", "ignore")
     return pdf_bytes
+
 
 if st.button("Generer le PDF de ma synthese"):
     radar_png = st.session_state.get("radar_png")
@@ -530,3 +580,4 @@ if st.button("Generer le PDF de ma synthese"):
         file_name="profil_disc_synthese.pdf",
         mime="application/pdf",
     )
+
